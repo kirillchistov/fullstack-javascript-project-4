@@ -36,7 +36,7 @@ page-loader --output /var/tmp https://ru.hexlet.io/courses
 ### Шаг 3
 - [x] Добавить в тесты проверку скачивания изображений и изменения HTML.
 - [x] Изменить HTML так, чтобы все ссылки указывали на скачанные файлы.
-- [x] Добавить в ридми аскинему с примером работы пакета. [Asciinema](https://asciinema.org/a/qP6GUAq7DOe4WRSu)
+- [x] Добавить в ридми аскинему с примером работы пакета. [Asciinema](https://asciinema.org/a/NZ6ilWhfECCmwSW0)
 ### Шаг 2
 - [x] Склонировать созданный репозиторий локально и инициализировать с именем @hexlet/code.
 - [x] Выполнить все необходимые приготовления (Github Actions, SonarQube, Eslint, добавить бейджики в ридми).
