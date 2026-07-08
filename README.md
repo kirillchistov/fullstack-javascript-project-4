@@ -34,15 +34,16 @@ page-loader --output /var/tmp https://ru.hexlet.io/courses
 - [] 
 - [] [Asciinema]()
 ### Шаг 3
-- [] 
-- [] [Asciinema]()
+- [x] Добавить в тесты проверку скачивания изображений и изменения HTML.
+- [x] Изменить HTML так, чтобы все ссылки указывали на скачанные файлы.
+- [x] Добавить в ридми аскинему с примером работы пакета. [Asciinema](https://asciinema.org/a/qP6GUAq7DOe4WRSu)
 ### Шаг 2
 - [x] Склонировать созданный репозиторий локально и инициализировать с именем @hexlet/code.
 - [x] Выполнить все необходимые приготовления (Github Actions, SonarQube, Eslint, добавить бейджики в ридми).
 - [x] Написать тесты (лучше до кода!).
 - [x] Реализовать загрузку указанной страницы.
 - [x] Поставить пакет, используя npm link, убедиться в том что он работает.
-- [x] Добавить в Readme аскинему с примером работы пакета: [Asciinema](https://asciinema.org/a/exoauhWs7yoXbuud)
+- [x] Добавить в Readme аскинему с примером работы пакета: [Asciinema](https://asciinema.org/a/q7f38Cf9zDavXoxS)
 
 ### Шаг 1
 - [x] Подключиться к GitHub и [создать репозиторий](https://github.com/kirillchistov/fullstack-javascript-project-4)

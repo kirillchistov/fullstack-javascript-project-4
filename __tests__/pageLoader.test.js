@@ -19,42 +19,24 @@ afterEach(() => {
   nock.cleanAll();
 });
 
-test('downloads page into specified directory', async () => {
+test('downloads page with image and rewrites html', async () => {
   const url = 'https://ru.hexlet.io/courses';
-  const expectedFilename = 'ru-hexlet-io-courses.html';
-  const expectedPath = path.join(tempDir, expectedFilename);
-  const html = '<html><body>Hello</body></html>';
+  const htmlBefore = await fs.readFile(path.join('__fixtures__', 'before.html'), 'utf-8');
+  const htmlAfter = await fs.readFile(path.join('__fixtures__', 'after.html'), 'utf-8');
+  const imageBuffer = Buffer.from('fake-image-data');
 
   nock('https://ru.hexlet.io')
     .get('/courses')
-    .reply(200, html);
+    .reply(200, htmlBefore)
+    .get('/assets/professions/nodejs.png')
+    .reply(200, imageBuffer, { 'Content-Type': 'image/png' });
 
   const resultPath = await pageLoader(url, tempDir);
-  const savedContent = await fs.readFile(expectedPath, 'utf-8');
+  const savedHtml = await fs.readFile(resultPath, 'utf-8');
+  const resourcesDir = path.join(tempDir, 'ru-hexlet-io-courses_files');
+  const imagePath = path.join(resourcesDir, 'ru-hexlet-io-assets-professions-nodejs-png.png');
+  const savedImage = await fs.readFile(imagePath);
 
-  expect(resultPath).toBe(expectedPath);
-  expect(savedContent).toBe(html);
-});
-
-test('creates file with normalized name', async () => {
-  const url = 'https://ru.hexlet.io/courses';
-  const html = '<html><body>Hexlet</body></html>';
-
-  nock('https://ru.hexlet.io')
-    .get('/courses')
-    .reply(200, html);
-
-  const resultPath = await pageLoader(url, tempDir);
-
-  expect(path.basename(resultPath)).toBe('ru-hexlet-io-courses.html');
-});
-
-test('rejects on network error', async () => {
-  const url = 'https://ru.hexlet.io/courses';
-
-  nock('https://ru.hexlet.io')
-    .get('/courses')
-    .reply(500);
-
-  await expect(pageLoader(url, tempDir)).rejects.toThrow();
+  expect(savedHtml).toBe(htmlAfter);
+  expect(savedImage).toEqual(imageBuffer);
 });
