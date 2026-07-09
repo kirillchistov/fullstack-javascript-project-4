@@ -1,6 +1,8 @@
 ### Hexlet tests and linter status:
 [![Actions Status](https://github.com/kirillchistov/fullstack-javascript-project-4/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/kirillchistov/fullstack-javascript-project-4/actions)
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kirillchistov_fullstack-javascript-project-4&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=kirillchistov_fullstack-javascript-project-4)
+
 ## Загрузчик страниц (JS)
 - Этот проект про глубокую проработку асинхронного кода. 
 - PageLoader — утилита командной строки, которая скачивает страницы из интернета и сохраняет их на компьютере. 
@@ -37,7 +39,10 @@ DEBUG=page-loader,axios,nock.* npm test
 - [] 
 - [] [Asciinema]()
 ### Шаг 6
-- [] 
+- [x] Написать тесты на ошибочные ситуации.
+- [x] При загрузке страницы и ресурсов, должны учитываться все возможные сетевые проблемы и http-ответы, не равные 200. В случае ошибок нужно пользователю выводить сообщение о том какая возникла проблема и с каким ресурсом.
+- [x] Невозможность проведения файловых операций также должна приводить к нормальной остановке и показу дружелюбного сообщения пользователю. В первую очередь это касается ошибок доступа, а так же отсутствия директории назначения.
+- [x] Добавить в ридми аскинему с примером работы, в процессе которой произошла ошибка. [Asciinema](https://asciinema.org/a/wZFR5rvM7kAZXOY0)
 ### Шаг 5
 - [x] Включить логирование axios.
 - [x] Включить логирование nock.

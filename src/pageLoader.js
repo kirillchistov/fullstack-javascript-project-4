@@ -1,6 +1,10 @@
 // поток построен на .then(): загрузка, создание директории, запись файла и возврат пути.
 // шаг 4: добавил селкторы и обработку остальных ресурсов.
 // шаг 5: добавил логирование.
+// шаг 6: добавил обработку ошибок. Библиотека кидает исключения с контекстом URL, ресурса и filepath. 
+// Axios по умолчанию отклоняет промис для HTTP-статусов вне диапазона 2xx, 
+// поэтому 404/500 отдельно ловить через validateStatus не требуется.
+
 import 'axios-debug-log/enable.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -22,18 +26,25 @@ const resourceSelectors = [
   { tag: 'link', attr: 'href' },
 ];
 
-const loadResource = (resourceUrl, resourcePath) => {
-  log('downloading resource: %s -> %s', resourceUrl, resourcePath);
-
-  return axios
-    .get(resourceUrl, { responseType: 'arraybuffer' })
-    .then((response) => fs.writeFile(resourcePath, response.data))
-    .then(() => {
-      log('resource saved: %s', resourcePath);
-    });
+const wrapError = (message, error) => {
+  const wrapped = new Error(`${message}: ${error.message}`);
+  wrapped.cause = error;
+  return wrapped;
 };
 
-const pageLoader = (url, outputDir = process.cwd()) => {
+const loadResource = async (resourceUrl, resourcePath) => {
+  log('downloading resource: %s -> %s', resourceUrl, resourcePath);
+
+  try {
+    const response = await axios.get(resourceUrl, { responseType: 'arraybuffer' });
+    await fs.writeFile(resourcePath, response.data);
+    log('resource saved: %s', resourcePath);
+  } catch (error) {
+    throw wrapError(`Failed to load resource ${resourceUrl}`, error);
+  }
+};
+
+const pageLoader = async (url, outputDir = process.cwd()) => {
   const filePath = getOutputPath(outputDir, url);
   const resourcesDirname = getResourcesDirname(url);
   const resourcesDirpath = path.join(outputDir, resourcesDirname);
@@ -42,83 +53,78 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   log('output html path: %s', filePath);
   log('resources dir path: %s', resourcesDirpath);
 
-  return axios.get(url)
-    .then((response) => {
-      const html = response.data;
-      const $ = load(html);
+  let html;
 
-      const resources = resourceSelectors.flatMap(({ tag, attr }) => (
-        $(`${tag}[${attr}]`).toArray().map((element) => {
-          const value = $(element).attr(attr);
-          return {
-            element,
-            attr,
-            value,
-            absoluteUrl: value ? new URL(value, url).toString() : null,
-          };
-        })
-      ))
-        .filter(({ value }) => value)
-        .filter(({ value, absoluteUrl }) => {
-          const isLocal = isLocalResource(url, value);
+  try {
+    const response = await axios.get(url);
+    html = response.data;
+  } catch (error) {
+    throw wrapError(`Failed to load page ${url}`, error);
+  }
 
-          if (isLocal) {
-            log('local resource found: %s -> %s', value, absoluteUrl);
-          } else {
-            log('external resource skipped: %s -> %s', value, absoluteUrl);
-          }
+  const $ = load(html);
 
-          return isLocal;
-        });
-
-      const uniqueResources = [...new Map(
-        resources.map((resource) => [resource.absoluteUrl, resource]),
-      ).values()];
-
-      log('local resources count: %d', uniqueResources.length);
-      log('local resources list: %o', uniqueResources.map(({ absoluteUrl }) => absoluteUrl));
-
-      return fs.mkdir(resourcesDirpath, { recursive: true })
-        .then(() => {
-          log('resources dir created: %s', resourcesDirpath);
-
-          return Promise.all(uniqueResources.map(({ absoluteUrl }) => {
-            const filename = getResourceFilename(url, absoluteUrl);
-            const filepath = path.join(resourcesDirpath, filename);
-
-            log('mapped resource: %s -> %s', absoluteUrl, filename);
-
-            return loadResource(absoluteUrl, filepath)
-              .then(() => {
-                resources
-                  .filter((resource) => resource.absoluteUrl === absoluteUrl)
-                  .forEach(({ element, attr }) => {
-                    const localPath = path.posix.join(resourcesDirname, filename);
-                    $(element).attr(attr, localPath);
-                    log('html rewritten: %s="%s"', attr, localPath);
-                  });
-              });
-          }));
-        })
-        .then(() => {
-          const resultHtml = $.html();
-          log('saving html file: %s', filePath);
-
-          return fs.writeFile(filePath, resultHtml);
-        })
-        .then(() => {
-          log('page saved successfully: %s', filePath);
-          return filePath;
-        });
+  const resources = resourceSelectors.flatMap(({ tag, attr }) => (
+    $(`${tag}[${attr}]`).toArray().map((element) => {
+      const value = $(element).attr(attr);
+      return {
+        element,
+        attr,
+        value,
+        absoluteUrl: value ? new URL(value, url).toString() : null,
+      };
     })
-    .catch((error) => {
-      log('page loading failed: %O', {
-        message: error.message,
-        code: error.code,
-        url,
-      });
-      throw error;
+  ))
+    .filter(({ value }) => value)
+    .filter(({ value, absoluteUrl }) => {
+      const isLocal = isLocalResource(url, value);
+
+      if (isLocal) {
+        log('local resource found: %s -> %s', value, absoluteUrl);
+      } else {
+        log('external resource skipped: %s -> %s', value, absoluteUrl);
+      }
+
+      return isLocal;
     });
+
+  const uniqueResources = [...new Map(
+    resources.map((resource) => [resource.absoluteUrl, resource]),
+  ).values()];
+
+  log('local resources count: %d', uniqueResources.length);
+
+  try {
+    await fs.mkdir(resourcesDirpath, { recursive: true });
+    log('resources dir created: %s', resourcesDirpath);
+  } catch (error) {
+    throw wrapError(`Failed to create directory ${resourcesDirpath}`, error);
+  }
+
+  await Promise.all(uniqueResources.map(async ({ absoluteUrl }) => {
+    const filename = getResourceFilename(url, absoluteUrl);
+    const filepath = path.join(resourcesDirpath, filename);
+  
+    log('mapped resource: %s -> %s', absoluteUrl, filename);
+  
+    await loadResource(absoluteUrl, filepath);
+  
+    resources
+      .filter((resource) => resource.absoluteUrl === absoluteUrl)
+      .forEach(({ element, attr }) => {
+        const localPath = path.posix.join(resourcesDirname, filename);
+        $(element).attr(attr, localPath);
+        log('html rewritten: %s="%s"', attr, localPath);
+      });
+  }));
+
+  try {
+    await fs.writeFile(filePath, $.html());
+    log('page saved successfully: %s', filePath);
+    return filePath;
+  } catch (error) {
+    throw wrapError(`Failed to write file ${filePath}`, error);
+  }
 };
 
 export default pageLoader;
