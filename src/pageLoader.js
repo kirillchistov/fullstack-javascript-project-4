@@ -10,6 +10,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import axios from 'axios';
 import { load } from 'cheerio';
+import Listr from 'listr';
 import debug from 'debug';
 import {
   getOutputPath,
@@ -42,6 +43,34 @@ const loadResource = async (resourceUrl, resourcePath) => {
   } catch (error) {
     throw wrapError(`Failed to load resource ${resourceUrl}`, error);
   }
+};
+
+const createResourceTasks = (resources, url, resourcesDirpath, resourcesDirname, $) => {
+  const uniqueResources = [...new Map(
+    resources.map((resource) => [resource.absoluteUrl, resource]),
+  ).values()];
+
+  return uniqueResources.map(({ absoluteUrl }) => {
+    const filename = getResourceFilename(url, absoluteUrl);
+    const filepath = path.join(resourcesDirpath, filename);
+
+    return {
+      title: `Downloading ${absoluteUrl}`,
+      task: async () => {
+        log('mapped resource: %s -> %s', absoluteUrl, filename);
+
+        await loadResource(absoluteUrl, filepath);
+
+        resources
+          .filter((resource) => resource.absoluteUrl === absoluteUrl)
+          .forEach(({ element, attr }) => {
+            const localPath = path.posix.join(resourcesDirname, filename);
+            $(element).attr(attr, localPath);
+            log('html rewritten: %s="%s"', attr, localPath);
+          });
+      },
+    };
+  });
 };
 
 const pageLoader = async (url, outputDir = process.cwd()) => {
@@ -88,11 +117,7 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
       return isLocal;
     });
 
-  const uniqueResources = [...new Map(
-    resources.map((resource) => [resource.absoluteUrl, resource]),
-  ).values()];
-
-  log('local resources count: %d', uniqueResources.length);
+  log('local resources count: %d', resources.length);
 
   try {
     await fs.mkdir(resourcesDirpath, { recursive: true });
@@ -101,22 +126,17 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
     throw wrapError(`Failed to create directory ${resourcesDirpath}`, error);
   }
 
-  await Promise.all(uniqueResources.map(async ({ absoluteUrl }) => {
-    const filename = getResourceFilename(url, absoluteUrl);
-    const filepath = path.join(resourcesDirpath, filename);
-  
-    log('mapped resource: %s -> %s', absoluteUrl, filename);
-  
-    await loadResource(absoluteUrl, filepath);
-  
-    resources
-      .filter((resource) => resource.absoluteUrl === absoluteUrl)
-      .forEach(({ element, attr }) => {
-        const localPath = path.posix.join(resourcesDirname, filename);
-        $(element).attr(attr, localPath);
-        log('html rewritten: %s="%s"', attr, localPath);
-      });
-  }));
+  const tasks = new Listr([
+    {
+      title: 'Downloading resources',
+      task: () => new Listr(
+        createResourceTasks(resources, url, resourcesDirpath, resourcesDirname, $),
+        { concurrent: true },
+      ),
+    },
+  ]);
+
+  await tasks.run();
 
   try {
     await fs.writeFile(filePath, $.html());
