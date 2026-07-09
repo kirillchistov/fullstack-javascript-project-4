@@ -1,8 +1,8 @@
 // поток построен на .then(): загрузка, создание директории, запись файла и возврат пути.
 // шаг 4: добавил селкторы и обработку остальных ресурсов.
 // шаг 5: добавил логирование.
-// шаг 6: добавил обработку ошибок. Библиотека кидает исключения с контекстом URL, ресурса и filepath. 
-// Axios по умолчанию отклоняет промис для HTTP-статусов вне диапазона 2xx, 
+// шаг 6: добавил обработку ошибок. Библиотека кидает исключения с контекстом URL, ресурса и filepath.
+// Axios по умолчанию отклоняет промис для HTTP-статусов вне диапазона 2xx,
 // поэтому 404/500 отдельно ловить через validateStatus не требуется.
 
 import 'axios-debug-log/enable.js';
@@ -73,6 +73,18 @@ const createResourceTasks = (resources, url, resourcesDirpath, resourcesDirname,
   });
 };
 
+const ensureOutputDirExists = async (outputDir) => {
+  try {
+    const stat = await fs.stat(outputDir);
+
+    if (!stat.isDirectory()) {
+      throw new Error(`${outputDir} is not a directory`);
+    }
+  } catch (error) {
+    throw wrapError(`Failed to access output directory ${outputDir}`, error);
+  }
+};
+
 const pageLoader = async (url, outputDir = process.cwd()) => {
   const filePath = getOutputPath(outputDir, url);
   const resourcesDirname = getResourcesDirname(url);
@@ -119,8 +131,10 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
 
   log('local resources count: %d', resources.length);
 
+  await ensureOutputDirExists(outputDir);
+
   try {
-    await fs.mkdir(resourcesDirpath, { recursive: true });
+    await fs.mkdir(resourcesDirpath);
     log('resources dir created: %s', resourcesDirpath);
   } catch (error) {
     throw wrapError(`Failed to create directory ${resourcesDirpath}`, error);

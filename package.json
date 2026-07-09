@@ -13,6 +13,7 @@
   "license": "ISC",
   "author": "Kirill Chistov / Hexlet",
   "type": "module",
+  "main": "index.js",
   "bin": {
     "page-loader": "bin/page-loader.js"
   },
