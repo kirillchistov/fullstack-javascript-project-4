@@ -1,9 +1,9 @@
 // принять URL и директорию вывода;
-// скачать страницу;
-// сгенерировать имя файла;
-// записать HTML;
-// вернуть полный путь к сохранённому файлу.
+// скачать страницу; сгенерировать имя файла;
+// записать HTML; вернуть полный путь к сохранённому файлу.
 // нормализовать URL для использования в качестве имени файла (убрать спецсимволы, заменить на md5 hash);
+// определить, является ли ресурс локальным; сгенерировать имя файла ресурса; вернуть путь к ресурсу.
+// учесть доменные имена и пути ресурсов, html тоже должен быть в resources.
 
 import path from 'path';
 import crypto from 'crypto';
@@ -19,7 +19,7 @@ const makeHash = (value) => crypto
   .digest('hex')
   .slice(0, 8);
 
-const isHexletDomain = (hostname) => hostname === 'hexlet.io' || hostname.endsWith('.hexlet.io');
+const getBaseDomain = (hostname) => hostname.split('.').slice(-2).join('.');
 
 export const normalizeUrlToFilename = (url) => {
   const parsedUrl = new URL(url);
@@ -40,16 +40,17 @@ export const isLocalResource = (pageUrl, resourceUrl) => {
   const page = new URL(pageUrl);
   const resource = new URL(resourceUrl, pageUrl);
 
-  return isHexletDomain(page.hostname) && isHexletDomain(resource.hostname);
+  return page.hostname === resource.hostname;
 };
 
 export const getResourceFilename = (pageUrl, resourceUrl) => {
   const page = new URL(pageUrl);
   const resource = new URL(resourceUrl, pageUrl);
 
-  const ext = path.extname(resource.pathname) || '.html';
-  const resourcePathWithoutExt = resource.pathname.endsWith(ext)
-    ? resource.pathname.slice(0, -ext.length)
+  const detectedExt = path.extname(resource.pathname);
+  const ext = detectedExt || '.html';
+  const resourcePathWithoutExt = detectedExt
+    ? resource.pathname.slice(0, -detectedExt.length)
     : resource.pathname;
 
   const rawName = `${page.hostname}${resourcePathWithoutExt}`;

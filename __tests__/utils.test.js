@@ -7,16 +7,16 @@ describe('isLocalResource', () => {
     expect(isLocalResource(pageUrl, '/assets/professions/nodejs.png')).toBe(true);
   });
 
-  test('returns true for same subdomain resource', () => {
+  test('returns true for same host resource', () => {
     expect(isLocalResource(pageUrl, 'https://ru.hexlet.io/assets/professions/nodejs.png')).toBe(true);
   });
 
-  test('returns true for main hexlet domain resource', () => {
-    expect(isLocalResource(pageUrl, 'https://hexlet.io/assets/professions/nodejs.png')).toBe(true);
+  test('returns false for another subdomain resource', () => {
+    expect(isLocalResource(pageUrl, 'https://cdn2.hexlet.io/assets/menu.css')).toBe(false);
   });
 
   test('returns false for external domain resource', () => {
-    expect(isLocalResource(pageUrl, 'https://example.com/assets/professions/nodejs.png')).toBe(false);
+    expect(isLocalResource(pageUrl, 'https://example.com/image.png')).toBe(false);
   });
 });
 
@@ -30,13 +30,12 @@ describe('getResourceFilename', () => {
     expect(filename).toBe('ru-hexlet-io-assets-professions-nodejs.png');
   });
 
-  test('shortens very long filenames and preserves extension', () => {
+  test('creates html filename for resource without extension', () => {
     const filename = getResourceFilename(
       'https://ru.hexlet.io/courses',
-      'https://hexlet.io/rails/active_storage/representations/proxy/very-long-long-long-long-long-long-long-long-long-long-long-long-image-name.png',
+      '/courses',
     );
 
-    expect(filename.endsWith('.png')).toBe(true);
-    expect(filename.length).toBeLessThan(120);
+    expect(filename).toBe('ru-hexlet-io-courses.html');
   });
 });
