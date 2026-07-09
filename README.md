@@ -20,6 +20,17 @@ npm link
 page-loader --output /var/tmp https://ru.hexlet.io/courses
 ```
 
+## Запуск с логами:
+
+```bash
+DEBUG=page-loader,axios page-loader --output /var/tmp https://ru.hexlet.io/courses
+``` 
+
+Пример для тестов:
+```bash
+DEBUG=page-loader,axios,nock.* npm test
+```
+
 ## Шаги и задачи
 
 ### Шаг 7
@@ -28,8 +39,11 @@ page-loader --output /var/tmp https://ru.hexlet.io/courses
 ### Шаг 6
 - [] 
 ### Шаг 5
-- [] 
-- [] [Asciinema]()
+- [x] Включить логирование axios.
+- [x] Включить логирование nock.
+- [x] Добавить библиотеку debug в проект.
+- [x] Включить логирование в библиотеке под неймспейсом page-loader.
+- [x] Добавить в ридми аскинему с примером логирования. [Asciinema](https://asciinema.org/a/NqrE4AVP0BMtkJhU)
 ### Шаг 4
 - [x] Добавить в тесты проверку скачивания ресурсов и изменения HTML.
 - [x] Реализовать скачивание всех локальных ресурсов со страницы.
