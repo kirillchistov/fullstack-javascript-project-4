@@ -5,9 +5,10 @@
 // Axios по умолчанию отклоняет промис для HTTP-статусов вне диапазона 2xx,
 // поэтому 404/500 отдельно ловить через validateStatus не требуется.
 
-import 'axios-debug-log/enable.js';
+import 'axios-debug-log/enable';
 import fs from 'fs/promises';
 import path from 'path';
+import process from 'process';
 import axios from 'axios';
 import { load } from 'cheerio';
 import Listr from 'listr';
@@ -33,26 +34,90 @@ const wrapError = (message, error) => {
   return wrapped;
 };
 
-const loadResource = async (resourceUrl, resourcePath) => {
-  log('downloading resource: %s -> %s', resourceUrl, resourcePath);
+const validateUrl = (inputUrl) => {
+  let parsedUrl;
 
   try {
-    const response = await axios.get(resourceUrl, { responseType: 'arraybuffer' });
-    await fs.writeFile(resourcePath, response.data);
-    log('resource saved: %s', resourcePath);
+    parsedUrl = new URL(inputUrl);
+  } catch {
+    throw new Error(`Invalid URL: ${inputUrl}`);
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error(`Unsupported protocol: ${parsedUrl.protocol}`);
+  }
+
+  if (!parsedUrl.hostname) {
+    throw new Error(`Invalid URL: ${inputUrl}`);
+  }
+
+  if (parsedUrl.username || parsedUrl.password) {
+    throw new Error('URL credentials are not allowed');
+  }
+
+  const forbiddenHosts = new Set(['localhost', '127.0.0.1', '::1']);
+
+  if (forbiddenHosts.has(parsedUrl.hostname)) {
+    throw new Error(`Forbidden host: ${parsedUrl.hostname}`);
+  }
+
+  return parsedUrl;
+};
+
+const resolveOutputDir = (outputDir) => path.resolve(outputDir);
+
+const safeJoin = (baseDir, targetName) => {
+  const resolvedBaseDir = path.resolve(baseDir);
+  const resolvedTargetPath = path.resolve(resolvedBaseDir, targetName);
+  const normalizedBaseDir = resolvedBaseDir.endsWith(path.sep)
+    ? resolvedBaseDir
+    : `${resolvedBaseDir}${path.sep}`;
+
+  if (resolvedTargetPath !== resolvedBaseDir && !resolvedTargetPath.startsWith(normalizedBaseDir)) {
+    throw new Error(`Unsafe path: ${resolvedTargetPath}`);
+  }
+
+  return resolvedTargetPath;
+};
+
+const ensureOutputDirExists = async (outputDir) => {
+  try {
+    const stat = await fs.stat(outputDir);
+
+    if (!stat.isDirectory()) {
+      throw new Error(`${outputDir} is not a directory`);
+    }
   } catch (error) {
-    throw wrapError(`Failed to load resource ${resourceUrl}`, error);
+    throw wrapError(`Failed to access output directory ${outputDir}`, error);
   }
 };
 
-const createResourceTasks = (resources, url, resourcesDirpath, resourcesDirname, $) => {
+const loadResource = async (resourceUrl, resourcePath) => {
+  const validatedResourceUrl = validateUrl(resourceUrl).toString();
+
+  log('downloading resource: %s -> %s', validatedResourceUrl, resourcePath);
+
+  try {
+    const response = await axios.get(validatedResourceUrl, {
+      responseType: 'arraybuffer',
+      maxRedirects: 0,
+      timeout: 10000,
+    });
+    await fs.writeFile(resourcePath, response.data);
+    log('resource saved: %s', resourcePath);
+  } catch (error) {
+    throw wrapError(`Failed to load resource ${validatedResourceUrl}`, error);
+  }
+};
+
+const createResourceTasks = (resources, pageUrl, resourcesDirpath, resourcesDirname, $) => {
   const uniqueResources = [...new Map(
     resources.map((resource) => [resource.absoluteUrl, resource]),
   ).values()];
 
   return uniqueResources.map(({ absoluteUrl }) => {
-    const filename = getResourceFilename(url, absoluteUrl);
-    const filepath = path.join(resourcesDirpath, filename);
+    const filename = getResourceFilename(pageUrl, absoluteUrl);
+    const filepath = safeJoin(resourcesDirpath, filename);
 
     return {
       title: `Downloading ${absoluteUrl}`,
@@ -73,34 +138,32 @@ const createResourceTasks = (resources, url, resourcesDirpath, resourcesDirname,
   });
 };
 
-const ensureOutputDirExists = async (outputDir) => {
-  try {
-    const stat = await fs.stat(outputDir);
-
-    if (!stat.isDirectory()) {
-      throw new Error(`${outputDir} is not a directory`);
-    }
-  } catch (error) {
-    throw wrapError(`Failed to access output directory ${outputDir}`, error);
-  }
-};
-
 const pageLoader = async (url, outputDir = process.cwd()) => {
-  const filePath = getOutputPath(outputDir, url);
-  const resourcesDirname = getResourcesDirname(url);
-  const resourcesDirpath = path.join(outputDir, resourcesDirname);
+  const parsedPageUrl = validateUrl(url);
+  const pageUrl = parsedPageUrl.toString();
+  const normalizedOutputDir = resolveOutputDir(outputDir);
 
-  log('start loading page: %s', url);
+  await ensureOutputDirExists(normalizedOutputDir);
+
+  const outputFilename = path.basename(getOutputPath(normalizedOutputDir, pageUrl));
+  const resourcesDirname = getResourcesDirname(pageUrl);
+  const filePath = safeJoin(normalizedOutputDir, outputFilename);
+  const resourcesDirpath = safeJoin(normalizedOutputDir, resourcesDirname);
+
+  log('start loading page: %s', pageUrl);
   log('output html path: %s', filePath);
   log('resources dir path: %s', resourcesDirpath);
 
   let html;
 
   try {
-    const response = await axios.get(url);
+    const response = await axios.get(pageUrl, {
+      maxRedirects: 0,
+      timeout: 10000,
+    });
     html = response.data;
   } catch (error) {
-    throw wrapError(`Failed to load page ${url}`, error);
+    throw wrapError(`Failed to load page ${pageUrl}`, error);
   }
 
   const $ = load(html);
@@ -108,17 +171,24 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
   const resources = resourceSelectors.flatMap(({ tag, attr }) => (
     $(`${tag}[${attr}]`).toArray().map((element) => {
       const value = $(element).attr(attr);
+
+      if (!value) {
+        return null;
+      }
+
+      const absoluteUrl = new URL(value, pageUrl).toString();
+
       return {
         element,
         attr,
         value,
-        absoluteUrl: value ? new URL(value, url).toString() : null,
+        absoluteUrl,
       };
     })
   ))
-    .filter(({ value }) => value)
+    .filter(Boolean)
     .filter(({ value, absoluteUrl }) => {
-      const isLocal = isLocalResource(url, value);
+      const isLocal = isLocalResource(pageUrl, value);
 
       if (isLocal) {
         log('local resource found: %s -> %s', value, absoluteUrl);
@@ -131,8 +201,6 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
 
   log('local resources count: %d', resources.length);
 
-  await ensureOutputDirExists(outputDir);
-
   try {
     await fs.mkdir(resourcesDirpath);
     log('resources dir created: %s', resourcesDirpath);
@@ -140,15 +208,20 @@ const pageLoader = async (url, outputDir = process.cwd()) => {
     throw wrapError(`Failed to create directory ${resourcesDirpath}`, error);
   }
 
-  const tasks = new Listr([
+  const tasks = new Listr(
+    [
+      {
+        title: 'Downloading resources',
+        task: () => new Listr(
+          createResourceTasks(resources, pageUrl, resourcesDirpath, resourcesDirname, $),
+          { concurrent: true },
+        ),
+      },
+    ],
     {
-      title: 'Downloading resources',
-      task: () => new Listr(
-        createResourceTasks(resources, url, resourcesDirpath, resourcesDirname, $),
-        { concurrent: true },
-      ),
+      renderer: process.stdout.isTTY ? 'default' : 'silent',
     },
-  ]);
+  );
 
   await tasks.run();
 
