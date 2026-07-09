@@ -5,7 +5,7 @@
 // Axios по умолчанию отклоняет промис для HTTP-статусов вне диапазона 2xx,
 // поэтому 404/500 отдельно ловить через validateStatus не требуется.
 
-import 'axios-debug-log/enable';
+import 'axios-debug-log/enable.js';
 import fs from 'fs/promises';
 import path from 'path';
 import process from 'process';
@@ -66,6 +66,24 @@ const validateUrl = (inputUrl) => {
 
 const resolveOutputDir = (outputDir) => path.resolve(outputDir);
 
+const validateOutputDirInput = (inputPath) => {
+  if (typeof inputPath !== 'string' || inputPath.trim() === '') {
+    throw new Error('Output directory must be a non-empty string');
+  }
+
+  if (inputPath.includes('\0') || inputPath.includes('%')) {
+    throw new Error('Output directory contains forbidden characters');
+  }
+
+  const normalizedInput = inputPath.replaceAll('\\', '/');
+
+  if (normalizedInput.split('/').includes('..')) {
+    throw new Error('Path traversal is not allowed in output directory');
+  }
+
+  return inputPath;
+};
+
 const safeJoin = (baseDir, targetName) => {
   const resolvedBaseDir = path.resolve(baseDir);
   const resolvedTargetPath = path.resolve(resolvedBaseDir, targetName);
@@ -116,7 +134,7 @@ const createResourceTasks = (resources, pageUrl, resourcesDirpath, resourcesDirn
   ).values()];
 
   return uniqueResources.map(({ absoluteUrl }) => {
-    const filename = getResourceFilename(pageUrl, absoluteUrl);
+    const filename = path.basename(getResourceFilename(pageUrl, absoluteUrl));
     const filepath = safeJoin(resourcesDirpath, filename);
 
     return {
@@ -141,12 +159,13 @@ const createResourceTasks = (resources, pageUrl, resourcesDirpath, resourcesDirn
 const pageLoader = async (url, outputDir = process.cwd()) => {
   const parsedPageUrl = validateUrl(url);
   const pageUrl = parsedPageUrl.toString();
-  const normalizedOutputDir = resolveOutputDir(outputDir);
+  const safeOutputDirInput = validateOutputDirInput(outputDir);
+  const normalizedOutputDir = path.resolve(safeOutputDirInput);
 
   await ensureOutputDirExists(normalizedOutputDir);
 
-  const outputFilename = path.basename(getOutputPath(normalizedOutputDir, pageUrl));
-  const resourcesDirname = getResourcesDirname(pageUrl);
+  const outputFilename = path.basename(getOutputPath('.', pageUrl));
+  const resourcesDirname = path.basename(getResourcesDirname(pageUrl));
   const filePath = safeJoin(normalizedOutputDir, outputFilename);
   const resourcesDirpath = safeJoin(normalizedOutputDir, resourcesDirname);
 
