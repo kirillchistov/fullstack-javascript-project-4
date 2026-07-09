@@ -55,16 +55,10 @@ const validateUrl = (inputUrl) => {
     throw new Error('URL credentials are not allowed');
   }
 
-  const forbiddenHosts = new Set(['localhost', '127.0.0.1', '::1']);
-
-  if (forbiddenHosts.has(parsedUrl.hostname)) {
-    throw new Error(`Forbidden host: ${parsedUrl.hostname}`);
-  }
-
   return parsedUrl;
 };
 
-const resolveOutputDir = (outputDir) => path.resolve(outputDir);
+// const resolveOutputDir = (outputDir) => path.resolve(outputDir);
 
 const validateOutputDirInput = (inputPath) => {
   if (typeof inputPath !== 'string' || inputPath.trim() === '') {
