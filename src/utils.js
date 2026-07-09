@@ -19,8 +19,6 @@ const makeHash = (value) => crypto
   .digest('hex')
   .slice(0, 8);
 
-const getBaseDomain = (hostname) => hostname.split('.').slice(-2).join('.');
-
 export const normalizeUrlToFilename = (url) => {
   const parsedUrl = new URL(url);
   const rawName = `${parsedUrl.hostname}${parsedUrl.pathname}`;
