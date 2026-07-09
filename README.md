@@ -4,8 +4,8 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kirillchistov_fullstack-javascript-project-4&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=kirillchistov_fullstack-javascript-project-4)
 
 ## Загрузчик страниц (JS)
-- Этот проект про глубокую проработку асинхронного кода. 
-- PageLoader — утилита командной строки, которая скачивает страницы из интернета и сохраняет их на компьютере. 
+- Этот проект про глубокую проработку асинхронного кода.
+- PageLoader — утилита командной строки, которая скачивает страницы из интернета и сохраняет их на компьютере.
 - Вместе со страницей она скачивает все ресурсы (картинки, стили и js), давая возможность открывать страницу без интернета.
 - [Демонстрация работы проекта](https://asciinema.org/a/dVKok25V5xW2SkjMF4LE8fZOw)
 
@@ -26,7 +26,7 @@ page-loader --output /var/tmp https://ru.hexlet.io/courses
 
 ```bash
 DEBUG=page-loader,axios page-loader --output /var/tmp https://ru.hexlet.io/courses
-``` 
+```
 
 Пример для тестов:
 ```bash
@@ -38,6 +38,8 @@ DEBUG=page-loader,axios,nock.* npm test
 ### Шаг 7
 - [x] Добавить библиотеку listr в проект, используйте флаг одновременной загрузки.
 - [x] Добавить отображение прогресса закачки ресурсов в терминал.
+- [x] Проверить что приложение проходит все тесты (втч SonarQube)
+- [x] Добавить .gitignore и пр. по чек-листу автопроверки
 - [x] Добавить в ридми аскинему с примером установки пакета и его работы. [Asciinema](https://asciinema.org/a/4gPEiWjlJHs6uqtA)
 ### Шаг 6
 - [x] Написать тесты на ошибочные ситуации.
