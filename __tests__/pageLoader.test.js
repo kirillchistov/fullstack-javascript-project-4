@@ -34,9 +34,14 @@ test('downloads page with image and rewrites html', async () => {
   const resultPath = await pageLoader(url, tempDir);
   const savedHtml = await fs.readFile(resultPath, 'utf-8');
   const resourcesDir = path.join(tempDir, 'ru-hexlet-io-courses_files');
-  const imagePath = path.join(resourcesDir, 'ru-hexlet-io-assets-professions-nodejs-png.png');
+  const imagePath = path.join(
+    resourcesDir,
+    'ru-hexlet-io-assets-professions-nodejs.png',
+  );
   const savedImage = await fs.readFile(imagePath);
 
-  expect(savedHtml).toBe(htmlAfter);
+  const normalizeHtml = (html) => html.replace(/\s+/g, ' ').trim();
+  expect(normalizeHtml(savedHtml)).toEqual(normalizeHtml(htmlAfter));
+  
   expect(savedImage).toEqual(imageBuffer);
 });

@@ -1,4 +1,4 @@
-import { getResourceFilename, isLocalResource } from '../src/utils.js';
+import { isLocalResource, getResourceFilename } from '../src/utils.js';
 
 describe('isLocalResource', () => {
   const pageUrl = 'https://ru.hexlet.io/courses';

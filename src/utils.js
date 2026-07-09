@@ -19,6 +19,8 @@ const makeHash = (value) => crypto
   .digest('hex')
   .slice(0, 8);
 
+const isHexletDomain = (hostname) => hostname === 'hexlet.io' || hostname.endsWith('.hexlet.io');
+
 export const normalizeUrlToFilename = (url) => {
   const parsedUrl = new URL(url);
   const rawName = `${parsedUrl.hostname}${parsedUrl.pathname}`;
@@ -26,11 +28,13 @@ export const normalizeUrlToFilename = (url) => {
   return `${normalize(rawName)}.html`;
 };
 
-export const getOutputPath = (outputDir, url) => path.resolve(outputDir, normalizeUrlToFilename(url));
+export const getOutputPath = (outputDir, url) => path.resolve(
+  outputDir,
+  normalizeUrlToFilename(url),
+);
 
-export const getResourcesDirname = (url) => normalizeUrlToFilename(url).replace(/\.html$/, '_files');
-
-const isHexletDomain = (hostname) => hostname === 'hexlet.io' || hostname.endsWith('.hexlet.io');
+export const getResourcesDirname = (url) => normalizeUrlToFilename(url)
+  .replace(/\.html$/, '_files');
 
 export const isLocalResource = (pageUrl, resourceUrl) => {
   const page = new URL(pageUrl);
@@ -42,12 +46,16 @@ export const isLocalResource = (pageUrl, resourceUrl) => {
 export const getResourceFilename = (pageUrl, resourceUrl) => {
   const page = new URL(pageUrl);
   const resource = new URL(resourceUrl, pageUrl);
-  const ext = path.extname(resource.pathname) || '.html';
-  const basenameWithoutExt = resource.pathname.replace(new RegExp(`${ext}$`), '');
-  const rawName = `${page.hostname}${basenameWithoutExt}`;
-  const normalized = normalize(rawName);
 
+  const ext = path.extname(resource.pathname) || '.html';
+  const resourcePathWithoutExt = resource.pathname.endsWith(ext)
+    ? resource.pathname.slice(0, -ext.length)
+    : resource.pathname;
+
+  const rawName = `${page.hostname}${resourcePathWithoutExt}`;
+  const normalized = normalize(rawName);
   const maxBaseLength = 100;
+
   if (normalized.length <= maxBaseLength) {
     return `${normalized}${ext}`;
   }
